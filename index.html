@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>슈퍼 공룡 점프 어드벤처</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Retro Arcade Style -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .arcade-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+        canvas {
+            image-rendering: pixelated;
+        }
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .glow-text {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+        }
+        /* Custom keyframes for UI pulse */
+        @keyframes softPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .animate-soft-pulse {
+            animation: softPulse 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col justify-between items-center p-2 sm:p-4 overflow-x-hidden selection:bg-emerald-500">
+
+    <!-- Header Navigation & Title -->
+    <header class="w-full max-w-4xl flex justify-between items-center py-3 px-4 rounded-2xl glass-panel shadow-2xl mb-2 sm:mb-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-300 flex items-center justify-center text-slate-900 font-extrabold text-2xl shadow-lg shadow-emerald-500/30">
+                🦖
+            </div>
+            <div>
+                <h1 class="text-lg sm:text-xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-200 to-cyan-400">
+                    슈퍼 공룡 점프
+                </h1>
+                <p class="text-xs text-slate-400 hidden sm:block">장애물을 피하고 최고 기록을 경신하세요!</p>
+            </div>
+        </div>
+
+        <!-- Top Right Controls -->
+        <div class="flex items-center gap-2">
+            <button id="soundToggleBtn" class="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 transition flex items-center gap-1 text-xs border border-slate-700">
+                <i class="fa-solid fa-volume-high text-emerald-400" id="soundIcon"></i>
+                <span class="hidden sm:inline" id="soundLabel">소리 켜짐</span>
+            </button>
+            <button id="skinSelectBtn" class="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 transition flex items-center gap-1 text-xs border border-slate-700">
+                <i class="fa-solid fa-shirt text-cyan-400"></i>
+                <span class="hidden sm:inline">스킨</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="w-full max-w-4xl relative flex flex-col items-center my-auto">
+        
+        <!-- Score Bar Overlay -->
+        <div class="w-full flex justify-between items-center px-4 py-2 text-xs sm:text-sm font-bold arcade-font text-slate-300 mb-2">
+            <div class="flex gap-4">
+                <span class="text-amber-400"><i class="fa-solid fa-trophy mr-1"></i>BEST: <span id="highScoreText">00000</span></span>
+                <span class="text-emerald-400"><i class="fa-solid fa-egg mr-1"></i>알: <span id="eggCountText">0</span></span>
+            </div>
+            <div class="flex gap-4">
+                <span class="text-cyan-400">SPD: <span id="speedText">1.0x</span></span>
+                <span class="text-white">SCORE: <span id="scoreText">00000</span></span>
+            </div>
+        </div>
+
+        <!-- Game Canvas Wrapper -->
+        <div class="relative w-full rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-900 group">
+            <canvas id="gameCanvas" width="900" height="350" class="w-full h-auto block bg-slate-900"></canvas>
+
+            <!-- Active Powerup Badges Overlay -->
+            <div id="powerupContainer" class="absolute top-3 left-3 flex gap-2 pointer-events-none"></div>
+
+            <!-- Start / Pause / Game Over Screens -->
+            <div id="uiOverlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center transition-all duration-300">
+                <!-- Start Screen -->
+                <div id="startScreen" class="flex flex-col items-center space-y-4">
+                    <div class="w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-5xl mb-2 animate-bounce">
+                        🦕
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-black text-white">준비 되셨나요?</h2>
+                    <p class="text-sm text-slate-400 max-w-md">
+                        [스페이스바] / [위쪽 화살표] 키나 화면을 터치하여 점프하세요.<br>
+                        [아래쪽 화살표] 키로 고개를 숙여 익룡을 피하세요!
+                    </p>
+                    <button id="startGameBtn" class="mt-4 px-8 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold text-lg shadow-lg shadow-emerald-500/40 transition transform active:scale-95 animate-soft-pulse">
+                        게임 시작하기 <i class="fa-solid fa-play ml-2"></i>
+                    </button>
+                </div>
+
+                <!-- Game Over Screen -->
+                <div id="gameOverScreen" class="hidden flex flex-col items-center space-y-4">
+                    <div class="px-4 py-1.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold uppercase tracking-wider">
+                        Game Over
+                    </div>
+                    <h2 class="text-3xl sm:text-4xl font-black text-white">아쉬워요!</h2>
+                    
+                    <!-- Stats Card -->
+                    <div class="grid grid-cols-2 gap-3 w-full max-w-xs my-2 text-left bg-slate-900/80 p-4 rounded-xl border border-slate-800 text-xs">
+                        <div>
+                            <span class="text-slate-500 block">최종 점수</span>
+                            <span id="finalScore" class="text-lg font-bold text-emerald-400 arcade-font">0</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">최고 기록</span>
+                            <span id="finalHighScore" class="text-lg font-bold text-amber-400 arcade-font">0</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">획득한 황금알</span>
+                            <span id="finalEggs" class="text-sm font-bold text-yellow-300">0개</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">점프 횟수</span>
+                            <span id="finalJumps" class="text-sm font-bold text-cyan-300">0회</span>
+                        </div>
+                    </div>
+
+                    <button id="restartGameBtn" class="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold text-lg shadow-lg shadow-emerald-500/40 transition transform active:scale-95">
+                        다시 시도 <i class="fa-solid fa-rotate-right ml-2"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Touch Controls -->
+        <div class="w-full grid grid-cols-2 gap-3 mt-3 sm:hidden">
+            <button id="mobileDuckBtn" class="py-4 bg-slate-800/80 active:bg-slate-700 border border-slate-700 rounded-2xl font-bold text-slate-200 text-base flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+                <i class="fa-solid fa-arrow-down"></i> 숙이기
+            </button>
+            <button id="mobileJumpBtn" class="py-4 bg-emerald-600/80 active:bg-emerald-500 border border-emerald-500/50 rounded-2xl font-bold text-white text-base flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
+                <i class="fa-solid fa-arrow-up"></i> 점프
+            </button>
+        </div>
+    </main>
+
+    <!-- Skin Selection Modal -->
+    <div id="skinModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-shirt text-cyan-400"></i> 공룡 스킨 선택
+                </h3>
+                <button id="closeSkinModalBtn" class="text-slate-400 hover:text-white p-2">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3 my-4" id="skinGrid">
+                <!-- Skins will be rendered here dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls Legend Footer -->
+    <footer class="w-full max-w-4xl text-center py-2 text-xs text-slate-500 hidden sm:flex justify-center gap-6">
+        <span><kbd class="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">Space</kbd> / <kbd class="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">↑</kbd> 점프</span>
+        <span><kbd class="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">↓</kbd> 숙이기</span>
+        <span><kbd class="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300 font-mono">P</kbd> 일시정지</span>
+    </footer>
+
+    <script>
+        /* Web Audio API Sound Synthesizer */
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playJump() {
+                if (this.muted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.12);
+                
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playPickup() {
+                if (this.muted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.08); // E5
+                osc.frequency.setValueAtTime(783.99, this.ctx.currentTime + 0.16); // G5
+
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playPowerup() {
+                if (this.muted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(900, this.ctx.currentTime + 0.2);
+
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playHit() {
+                if (this.muted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.25);
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+        }
+
+        const audio = new AudioEngine();
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Element References
+        const uiOverlay = document.getElementById('uiOverlay');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startGameBtn = document.getElementById('startGameBtn');
+        const restartGameBtn = document.getElementById('restartGameBtn');
+        const scoreText = document.getElementById('scoreText');
+        const highScoreText = document.getElementById('highScoreText');
+        const eggCountText = document.getElementById('eggCountText');
+        const speedText = document.getElementById('speedText');
+        const finalScore = document.getElementById('finalScore');
+        const finalHighScore = document.getElementById('finalHighScore');
+        const finalEggs = document.getElementById('finalEggs');
+        const finalJumps = document.getElementById('finalJumps');
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const soundIcon = document.getElementById('soundIcon');
+        const soundLabel = document.getElementById('soundLabel');
+        const skinSelectBtn = document.getElementById('skinSelectBtn');
+        const skinModal = document.getElementById('skinModal');
+        const closeSkinModalBtn = document.getElementById('closeSkinModalBtn');
+        const skinGrid = document.getElementById('skinGrid');
+        const powerupContainer = document.getElementById('powerupContainer');
+
+        // Game Skins Configuration
+        const SKINS = [
+            { id: 'classic', name: '초록 티렉스', color: '#10b981', accent: '#047857', eye: '#ffffff', reqEggs: 0 },
+            { id: 'cyber', name: '네온 네오', color: '#06b6d4', accent: '#3b82f6', eye: '#f43f5e', reqEggs: 5 },
+            { id: 'dragon', name: '붉은 용', color: '#ef4444', accent: '#b91c1c', eye: '#fef08a', reqEggs: 15 },
+            { id: 'cat', name: '황금 가디언', color: '#f59e0b', accent: '#d97706', eye: '#ffffff', reqEggs: 30 }
+        ];
+
+        let selectedSkin = SKINS[0];
+        let totalEggsCollected = parseInt(localStorage.getItem('dino_eggs') || '0');
+
+        // Game Physics Constants
+        const GROUND_Y = 280;
+        const GRAVITY = 0.65;
+        const JUMP_FORCE = -12.5;
+
+        // Game State Variables
+        let gameState = 'START'; // START, PLAYING, GAMEOVER, PAUSED
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('dino_highscore') || '0');
+        let gameSpeed = 6;
+        let frameCount = 0;
+        let eggsCollectedInRun = 0;
+        let totalJumpsInRun = 0;
+        let timeOfDay = 0; // 0 to 1 for day/night cycle
+
+        highScoreText.textContent = String(highScore).padStart(5, '0');
+        eggCountText.textContent = totalEggsCollected;
+
+        class Dinosaur {
+            constructor() {
+                this.x = 80;
+                this.y = GROUND_Y - 50;
+                this.width = 44;
+                this.height = 52;
+                this.vy = 0;
+                this.isGrounded = true;
+                this.isDucking = false;
+                this.hasDoubleJump = false;
+                this.canDoubleJump = false;
+                this.hasShield = false;
+                this.shieldTimer = 0;
+                this.animFrame = 0;
+                this.dustParticles = [];
+            }
+
+            reset() {
+                this.y = GROUND_Y - 50;
+                this.width = 44;
+                this.height = 52;
+                this.vy = 0;
+                this.isGrounded = true;
+                this.isDucking = false;
+                this.hasDoubleJump = false;
+                this.canDoubleJump = false;
+                this.hasShield = false;
+                this.shieldTimer = 0;
+                this.dustParticles = [];
+            }
+
+            jump() {
+                if (this.isGrounded) {
+                    this.vy = JUMP_FORCE;
+                    this.isGrounded = false;
+                    this.canDoubleJump = this.hasDoubleJump;
+                    this.createDust();
+                    audio.playJump();
+                    totalJumpsInRun++;
+                } else if (this.canDoubleJump) {
+                    this.vy = JUMP_FORCE * 0.9;
+                    this.canDoubleJump = false;
+                    this.createDust(8);
+                    audio.playJump();
+                    totalJumpsInRun++;
+                }
+            }
+
+            duck(isDucking) {
+                if (this.isGrounded) {
+                    this.isDucking = isDucking;
+                    if (isDucking) {
+                        this.height = 30;
+                        this.y = GROUND_Y - 30;
+                    } else {
+                        this.height = 52;
+                        this.y = GROUND_Y - 52;
+                    }
+                }
+            }
+
+            update() {
+                // Apply Gravity
+                this.vy += GRAVITY;
+                this.y += this.vy;
+
+                // Ground Collision
+                if (this.y >= GROUND_Y - this.height) {
+                    this.y = GROUND_Y - this.height;
+                    this.vy = 0;
+                    if (!this.isGrounded) {
+                        this.createDust(5);
+                    }
+                    this.isGrounded = true;
+                }
+
+                // Shield Timer Update
+                if (this.hasShield) {
+                    this.shieldTimer--;
+                    if (this.shieldTimer <= 0) {
+                        this.hasShield = false;
+                    }
+                }
+
+                // Leg Run Animation Frame
+                if (frameCount % 6 === 0) {
+                    this.animFrame = (this.animFrame + 1) % 2;
+                }
+
+                // Update Dust Particles
+                this.dustParticles.forEach((p, idx) => {
+                    p.x -= gameSpeed * 0.8;
+                    p.y += p.vy;
+                    p.alpha -= 0.04;
+                    if (p.alpha <= 0) this.dustParticles.splice(idx, 1);
+                });
+            }
+
+            createDust(count = 4) {
+                for (let i = 0; i < count; i++) {
+                    this.dustParticles.push({
+                        x: this.x + 10 + Math.random() * 20,
+                        y: GROUND_Y - 4,
+                        vy: -Math.random() * 1.5,
+                        size: Math.random() * 4 + 2,
+                        alpha: 0.8
+                    });
+                }
+            }
+
+            draw() {
+                // Draw Dust
+                ctx.fillStyle = 'rgba(203, 213, 225, ';
+                this.dustParticles.forEach(p => {
+                    ctx.fillStyle = `rgba(148, 163, 184, ${p.alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                ctx.save();
+
+                // Shield Effect Visual
+                if (this.hasShield) {
+                    ctx.strokeStyle = `rgba(56, 189, 248, ${0.6 + Math.sin(frameCount * 0.2) * 0.3})`;
+                    ctx.lineWidth = 3;
+                    ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+                    ctx.beginPath();
+                    ctx.ellipse(
+                        this.x + this.width / 2, 
+                        this.y + this.height / 2, 
+                        this.width * 0.8, 
+                        this.height * 0.7, 
+                        0, 0, Math.PI * 2
+                    );
+                    ctx.fill();
+                    ctx.stroke();
+                }
+
+                // Custom Canvas Vector Drawing for Dinosaur
+                const skin = selectedSkin;
+                ctx.fillStyle = skin.color;
+
+                if (!this.isDucking) {
+                    // Normal Standing / Running Dino
+                    // Body
+                    ctx.fillRect(this.x + 8, this.y + 16, 24, 24);
+                    // Head & Snout
+                    ctx.fillRect(this.x + 18, this.y, 22, 18);
+                    ctx.fillRect(this.x + 36, this.y + 6, 8, 8);
+                    // Eye
+                    ctx.fillStyle = skin.eye;
+                    ctx.fillRect(this.x + 30, this.y + 4, 4, 4);
+                    // Tail
+                    ctx.fillStyle = skin.color;
+                    ctx.fillRect(this.x, this.y + 20, 10, 8);
+                    ctx.fillRect(this.x - 4, this.y + 18, 6, 6);
+                    // Arm
+                    ctx.fillStyle = skin.accent;
+                    ctx.fillRect(this.x + 26, this.y + 22, 6, 4);
+
+                    // Legs
+                    ctx.fillStyle = skin.accent;
+                    if (this.isGrounded) {
+                        if (this.animFrame === 0) {
+                            ctx.fillRect(this.x + 12, this.y + 40, 6, 12);
+                            ctx.fillRect(this.x + 24, this.y + 40, 6, 8);
+                        } else {
+                            ctx.fillRect(this.x + 12, this.y + 40, 6, 8);
+                            ctx.fillRect(this.x + 24, this.y + 40, 6, 12);
+                        }
+                    } else {
+                        // In Air
+                        ctx.fillRect(this.x + 10, this.y + 40, 8, 8);
+                        ctx.fillRect(this.x + 22, this.y + 36, 8, 8);
+                    }
+                } else {
+                    // Ducking Dino
+                    // Flattened Body
+                    ctx.fillRect(this.x, this.y + 8, 38, 16);
+                    // Extended Head
+                    ctx.fillRect(this.x + 32, this.y, 18, 14);
+                    // Eye
+                    ctx.fillStyle = skin.eye;
+                    ctx.fillRect(this.x + 42, this.y + 3, 4, 4);
+                    // Legs
+                    ctx.fillStyle = skin.accent;
+                    if (this.animFrame === 0) {
+                        ctx.fillRect(this.x + 8, this.y + 24, 8, 6);
+                        ctx.fillRect(this.x + 24, this.y + 24, 8, 4);
+                    } else {
+                        ctx.fillRect(this.x + 8, this.y + 24, 8, 4);
+                        ctx.fillRect(this.x + 24, this.y + 24, 8, 6);
+                    }
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class Obstacle {
+            constructor(type, x) {
+                this.type = type; // 'CACTUS_SMALL', 'CACTUS_LARGE', 'PTERODACTYL'
+                this.x = x;
+                this.markedForDeletion = false;
+
+                if (type === 'CACTUS_SMALL') {
+                    this.width = 24;
+                    this.height = 42;
+                    this.y = GROUND_Y - this.height;
+                } else if (type === 'CACTUS_LARGE') {
+                    this.width = 46;
+                    this.height = 56;
+                    this.y = GROUND_Y - this.height;
+                } else if (type === 'PTERODACTYL') {
+                    this.width = 40;
+                    this.height = 30;
+                    // Flying altitudes: Low (duck), Medium (jump or duck), High (safe)
+                    const altitudes = [GROUND_Y - 45, GROUND_Y - 70, GROUND_Y - 95];
+                    this.y = altitudes[Math.floor(Math.random() * altitudes.length)];
+                    this.wingFrame = 0;
+                }
+            }
+
+            update() {
+                this.x -= gameSpeed;
+                if (this.x + this.width < -20) {
+                    this.markedForDeletion = true;
+                }
+                if (this.type === 'PTERODACTYL' && frameCount % 12 === 0) {
+                    this.wingFrame = (this.wingFrame + 1) % 2;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                if (this.type.startsWith('CACTUS')) {
+                    ctx.fillStyle = '#10b981';
+                    ctx.strokeStyle = '#047857';
+                    ctx.lineWidth = 2;
+
+                    if (this.type === 'CACTUS_SMALL') {
+                        // Single Cactus
+                        ctx.fillRect(this.x + 8, this.y, 8, this.height);
+                        ctx.fillRect(this.x + 2, this.y + 12, 6, 12);
+                        ctx.fillRect(this.x + 2, this.y + 20, 12, 4);
+                    } else {
+                        // Triple Cactus Cluster
+                        ctx.fillRect(this.x + 6, this.y, 10, this.height);
+                        ctx.fillRect(this.x + 22, this.y + 10, 8, this.height - 10);
+                        ctx.fillRect(this.x + 34, this.y + 18, 8, this.height - 18);
+                    }
+                } else if (this.type === 'PTERODACTYL') {
+                    // Flying Bird / Pterodactyl
+                    ctx.fillStyle = '#f43f5e';
+                    // Body
+                    ctx.fillRect(this.x + 10, this.y + 10, 20, 10);
+                    // Beak & Head
+                    ctx.fillRect(this.x, this.y + 12, 12, 6);
+                    // Wings
+                    if (this.wingFrame === 0) {
+                        ctx.fillRect(this.x + 14, this.y - 8, 8, 18); // Wing Up
+                    } else {
+                        ctx.fillRect(this.x + 14, this.y + 18, 8, 14); // Wing Down
+                    }
+                }
+                ctx.restore();
+            }
+        }
+
+        class Item {
+            constructor(type, x, y) {
+                this.type = type; // 'EGG', 'SHIELD', 'DOUBLE_JUMP'
+                this.x = x;
+                this.y = y;
+                this.width = 24;
+                this.height = 24;
+                this.markedForDeletion = false;
+                this.floatOffset = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.x -= gameSpeed;
+                this.floatOffset += 0.08;
+                if (this.x + this.width < -20) {
+                    this.markedForDeletion = true;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                const drawY = this.y + Math.sin(this.floatOffset) * 4;
+
+                if (this.type === 'EGG') {
+                    // Golden Egg Collectible
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.beginPath();
+                    ctx.ellipse(this.x + 12, drawY + 12, 9, 12, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fillRect(this.x + 8, drawY + 6, 4, 4);
+                } else if (this.type === 'SHIELD') {
+                    // Shield Bubble Item
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.beginPath();
+                    ctx.arc(this.x + 12, drawY + 12, 11, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.fillText('🛡️', this.x + 3, drawY + 17);
+                } else if (this.type === 'DOUBLE_JUMP') {
+                    // Wing Feather Item
+                    ctx.fillStyle = '#a855f7';
+                    ctx.beginPath();
+                    ctx.arc(this.x + 12, drawY + 12, 11, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.fillText('🪽', this.x + 3, drawY + 17);
+                }
+                ctx.restore();
+            }
+        }
+
+        class Background {
+            constructor() {
+                this.clouds = [
+                    { x: 200, y: 50, size: 1.2 },
+                    { x: 500, y: 80, size: 0.9 },
+                    { x: 850, y: 40, size: 1.1 }
+                ];
+                this.stars = Array.from({ length: 25 }, () => ({
+                    x: Math.random() * 900,
+                    y: Math.random() * 160,
+                    size: Math.random() * 2 + 1
+                }));
+            }
+
+            update() {
+                // Scroll clouds
+                this.clouds.forEach(c => {
+                    c.x -= gameSpeed * 0.25;
+                    if (c.x < -100) c.x = 950;
+                });
+            }
+
+            draw() {
+                // Day/Night Cycle calculation based on score
+                timeOfDay = (Math.sin(score * 0.001) + 1) / 2; // 0 (Night) to 1 (Day)
+
+                // Smooth canvas sky background color shift
+                const skyR = Math.floor(15 + timeOfDay * 15);
+                const skyG = Math.floor(23 + timeOfDay * 35);
+                const skyB = Math.floor(42 + timeOfDay * 60);
+                canvas.style.backgroundColor = `rgb(${skyR}, ${skyG}, ${skyB})`;
+
+                ctx.save();
+
+                // Draw Stars if Night
+                if (timeOfDay < 0.6) {
+                    const starAlpha = (0.6 - timeOfDay) * 1.6;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${starAlpha})`;
+                    this.stars.forEach(s => {
+                        ctx.beginPath();
+                        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                }
+
+                // Draw Clouds
+                ctx.fillStyle = `rgba(255, 255, 255, ${0.15 + timeOfDay * 0.25})`;
+                this.clouds.forEach(c => {
+                    ctx.beginPath();
+                    ctx.arc(c.x, c.y, 16 * c.size, 0, Math.PI * 2);
+                    ctx.arc(c.x + 15 * c.size, c.y - 8 * c.size, 18 * c.size, 0, Math.PI * 2);
+                    ctx.arc(c.x + 32 * c.size, c.y, 14 * c.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Draw Ground Terrain Line & Dotted Details
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, GROUND_Y);
+                ctx.lineTo(canvas.width, GROUND_Y);
+                ctx.stroke();
+
+                // Ground texture bumps
+                ctx.fillStyle = '#475569';
+                for (let i = 0; i < canvas.width; i += 40) {
+                    const bumpX = (i - (frameCount * gameSpeed) % 40);
+                    ctx.fillRect(bumpX, GROUND_Y + 8, 12, 2);
+                    ctx.fillRect(bumpX + 20, GROUND_Y + 18, 6, 2);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        const player = new Dinosaur();
+        const background = new Background();
+        let obstacles = [];
+        let items = [];
+        let spawnTimer = 0;
+
+        function spawnManager() {
+            spawnTimer++;
+            // Dynamic obstacle spawning frequency based on game speed
+            if (spawnTimer > Math.max(45, 110 - gameSpeed * 3)) {
+                spawnTimer = 0;
+                const rand = Math.random();
+
+                if (rand < 0.55) {
+                    const type = Math.random() < 0.6 ? 'CACTUS_SMALL' : 'CACTUS_LARGE';
+                    obstacles.push(new Obstacle(type, canvas.width + 50));
+                } else if (rand < 0.85) {
+                    obstacles.push(new Obstacle('PTERODACTYL', canvas.width + 50));
+                } else {
+                    // Spawn Item Powerup
+                    const itemTypes = ['EGG', 'EGG', 'SHIELD', 'DOUBLE_JUMP'];
+                    const chosenType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+                    items.push(new Item(chosenType, canvas.width + 50, GROUND_Y - 60 - Math.random() * 50));
+                }
+            }
+        }
+
+        // Hitbox Collision Helper (with padding for fair hitboxes)
+        function checkCollision(rect1, rect2, padding = 6) {
+            return (
+                rect1.x + padding < rect2.x + rect2.width &&
+                rect1.x + rect1.width - padding > rect2.x &&
+                rect1.y + padding < rect2.y + rect2.height &&
+                rect1.y + rect1.height - padding > rect2.y
+            );
+        }
+
+        function updatePowerupUI() {
+            powerupContainer.innerHTML = '';
+            if (player.hasShield) {
+                powerupContainer.innerHTML += `
+                    <div class="px-2.5 py-1 rounded-lg bg-sky-500/20 border border-sky-400 text-sky-300 text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                        <i class="fa-solid fa-shield-halved"></i> 보호막 (${Math.ceil(player.shieldTimer / 60)}s)
+                    </div>`;
+            }
+            if (player.hasDoubleJump) {
+                powerupContainer.innerHTML += `
+                    <div class="px-2.5 py-1 rounded-lg bg-purple-500/20 border border-purple-400 text-purple-300 text-xs font-bold flex items-center gap-1.5">
+                        <i class="fa-solid fa-feather"></i> 이단 점프 가능
+                    </div>`;
+            }
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            audio.playHit();
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('dino_highscore', highScore);
+            }
+
+            totalEggsCollected += eggsCollectedInRun;
+            localStorage.setItem('dino_eggs', totalEggsCollected);
+
+            // Update UI
+            scoreText.textContent = String(score).padStart(5, '0');
+            highScoreText.textContent = String(highScore).padStart(5, '0');
+            eggCountText.textContent = totalEggsCollected;
+
+            finalScore.textContent = score;
+            finalHighScore.textContent = highScore;
+            finalEggs.textContent = `${eggsCollectedInRun}개`;
+            finalJumps.textContent = `${totalJumpsInRun}회`;
+
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+            uiOverlay.classList.remove('hidden');
+        }
+
+        function resetGame() {
+            score = 0;
+            gameSpeed = 6;
+            frameCount = 0;
+            eggsCollectedInRun = 0;
+            totalJumpsInRun = 0;
+            obstacles = [];
+            items = [];
+            spawnTimer = 0;
+            player.reset();
+
+            scoreText.textContent = '00000';
+            speedText.textContent = '1.0x';
+            uiOverlay.classList.add('hidden');
+            updatePowerupUI();
+
+            gameState = 'PLAYING';
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            background.update();
+            background.draw();
+
+            if (gameState === 'PLAYING') {
+                frameCount++;
+                score = Math.floor(frameCount / 4);
+                scoreText.textContent = String(score).padStart(5, '0');
+
+                // Gradually increase game speed
+                if (frameCount % 300 === 0 && gameSpeed < 16) {
+                    gameSpeed += 0.4;
+                    speedText.textContent = (gameSpeed / 6).toFixed(1) + 'x';
+                }
+
+                player.update();
+                spawnManager();
+
+                // Update & Draw Obstacles
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    const obs = obstacles[i];
+                    obs.update();
+                    obs.draw();
+
+                    // Collision Check
+                    if (checkCollision(player, obs)) {
+                        if (player.hasShield) {
+                            // Shield absorbs the hit!
+                            player.hasShield = false;
+                            obstacles.splice(i, 1);
+                            audio.playHit();
+                            updatePowerupUI();
+                        } else {
+                            gameOver();
+                            break;
+                        }
+                    }
+
+                    if (obs.markedForDeletion) obstacles.splice(i, 1);
+                }
+
+                // Update & Draw Items
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const item = items[i];
+                    item.update();
+                    item.draw();
+
+                    if (checkCollision(player, item, 0)) {
+                        if (item.type === 'EGG') {
+                            eggsCollectedInRun++;
+                            audio.playPickup();
+                        } else if (item.type === 'SHIELD') {
+                            player.hasShield = true;
+                            player.shieldTimer = 360; // ~6 seconds
+                            audio.playPowerup();
+                        } else if (item.type === 'DOUBLE_JUMP') {
+                            player.hasDoubleJump = true;
+                            audio.playPowerup();
+                        }
+                        updatePowerupUI();
+                        items.splice(i, 1);
+                    } else if (item.markedForDeletion) {
+                        items.splice(i, 1);
+                    }
+                }
+            }
+
+            player.draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function renderSkinGrid() {
+            skinGrid.innerHTML = '';
+            SKINS.forEach(skin => {
+                const isUnlocked = totalEggsCollected >= skin.reqEggs;
+                const isSelected = selectedSkin.id === skin.id;
+
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-2xl border flex flex-col items-center gap-2 cursor-pointer transition ${
+                    isSelected ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 bg-slate-800/50 hover:bg-slate-800'
+                } ${!isUnlocked ? 'opacity-50 cursor-not-allowed' : ''}`;
+
+                card.innerHTML = `
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style="background-color: ${skin.color}">
+                        🦕
+                    </div>
+                    <div class="text-center">
+                        <div class="font-bold text-xs text-white">${skin.name}</div>
+                        <div class="text-[10px] text-slate-400">
+                            ${isUnlocked ? (isSelected ? '✓ 착용 중' : '선택 가능') : `🥚 ${skin.reqEggs}개 필요`}
+                        </div>
+                    </div>
+                `;
+
+                if (isUnlocked) {
+                    card.onclick = () => {
+                        selectedSkin = skin;
+                        renderSkinGrid();
+                    };
+                }
+
+                skinGrid.appendChild(card);
+            });
+        }
+
+        // Keyboard Controls
+        window.addEventListener('keydown', (e) => {
+            audio.init();
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (gameState === 'PLAYING') {
+                    player.jump();
+                } else if (gameState === 'START' || gameState === 'GAMEOVER') {
+                    resetGame();
+                }
+            } else if (e.code === 'ArrowDown') {
+                e.preventDefault();
+                if (gameState === 'PLAYING') {
+                    player.duck(true);
+                }
+            } else if (e.code === 'KeyP') {
+                if (gameState === 'PLAYING') gameState = 'PAUSED';
+                else if (gameState === 'PAUSED') gameState = 'PLAYING';
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowDown') {
+                player.duck(false);
+            }
+        });
+
+        // UI Event Listeners
+        startGameBtn.addEventListener('click', () => {
+            audio.init();
+            resetGame();
+        });
+
+        restartGameBtn.addEventListener('click', () => {
+            audio.init();
+            resetGame();
+        });
+
+        // Mobile Controls
+        const mobileJumpBtn = document.getElementById('mobileJumpBtn');
+        const mobileDuckBtn = document.getElementById('mobileDuckBtn');
+
+        mobileJumpBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            audio.init();
+            if (gameState === 'PLAYING') player.jump();
+            else if (gameState === 'START' || gameState === 'GAMEOVER') resetGame();
+        });
+
+        mobileDuckBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState === 'PLAYING') player.duck(true);
+        });
+
+        mobileDuckBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (gameState === 'PLAYING') player.duck(false);
+        });
+
+        // Sound Toggle Button
+        soundToggleBtn.addEventListener('click', () => {
+            audio.init();
+            audio.muted = !audio.muted;
+            if (audio.muted) {
+                soundIcon.className = 'fa-solid fa-volume-xmark text-slate-400';
+                soundLabel.textContent = '음소거';
+            } else {
+                soundIcon.className = 'fa-solid fa-volume-high text-emerald-400';
+                soundLabel.textContent = '소리 켜짐';
+            }
+        });
+
+        // Skin Modal Buttons
+        skinSelectBtn.addEventListener('click', () => {
+            renderSkinGrid();
+            skinModal.classList.remove('hidden');
+        });
+
+        closeSkinModalBtn.addEventListener('click', () => {
+            skinModal.classList.add('hidden');
+        });
+
+        // Canvas Click to Jump for Mobile/Tablet Ease
+        canvas.addEventListener('pointerdown', (e) => {
+            if (e.target === canvas && gameState === 'PLAYING') {
+                audio.init();
+                player.jump();
+            }
+        });
+
+        // Initialize Game Loop on Load
+        window.onload = () => {
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
